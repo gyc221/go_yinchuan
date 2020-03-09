@@ -1,0 +1,8 @@
+{
+    "IPAddr": "www.mingcz.work",
+    "Port": 20027,
+    "User": "root",
+    "Pwd": "000000",
+    "DBName": "configdb_scgl",
+    "Charset": "utf8"
+}
