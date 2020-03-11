@@ -60,11 +60,11 @@ func getIDList(db *sqlx.DB, tagNameList string) (string, string, string, string)
 //从李袁星整理的表里面统计水耗 电耗 热耗 对应的TagName
 func convertWaterHeatElec(db *sqlx.DB) {
 	sql1 := `select 
-	a.aId,
-	b.NAM,
-	a.waterSupplyTags,
-	a.heatConsumeTags,
-	a.powerConsumption 
+	ifnull(a.aId,''),
+	ifnull(b.NAM,''),
+	ifnull(a.waterSupplyTags,''),
+	ifnull(a.heatConsumeTags,''),
+	ifnull(a.powerConsumption,'') 
 	from orgtaginfo a left join basis_org b on a.aId=b.ID
 	where b.NAM is not null`
 	rows, err := db.Query(sql1)
@@ -106,27 +106,53 @@ func convertWaterHeatElec(db *sqlx.DB) {
 //从我自己整理的表里面统计除水耗 电耗 热耗 以外的TagName
 func convertElseType(db *sqlx.DB) {
 	sql1 := `select 
-	station_id,
-	station_name,
-	valve_open_degree,
-	sec_send_water_temp,
-	sec_ret_water_temp,
-	sec_net_flow,
-	three_net_send_temp,
-	three_net_ret_temp
-	from temporary_station_tag_name_xxxxxx`
+	ifnull(station_id,''),
+	ifnull(station_name,''),
+	ifnull(buy_heat,''),
+	ifnull(one_net_water_consume,''),
+	ifnull(two_net_water_consume,''),
+	ifnull(valve_open_degree,''),
+	ifnull(sec_send_water_temp,''),
+	ifnull(sec_ret_water_temp,''),
+	ifnull(sec_net_flow,''),
+	ifnull(three_net_send_temp,''),
+	ifnull(three_net_ret_temp,'')
+	from temporary_station_tag_name_xxxxxx order by station_id asc`
 	rows, err := db.Query(sql1)
 	checkError(err)
 	defer rows.Close()
 	for rows.Next() {
-		var stationID, stationName, valveOpenDegree, secSendWaterTemp, secRetWaterTemp, secNetFlow, threeNetSendTemp, threeNetRetTemp string
-		rows.Scan(&stationID, &stationName, &valveOpenDegree, &secSendWaterTemp, &secRetWaterTemp, &secNetFlow, &threeNetSendTemp, &threeNetRetTemp)
+		var stationID, stationName, buyHeat, oneNetWaterConsume, towNetWaterConsume, valveOpenDegree, secSendWaterTemp, secRetWaterTemp, secNetFlow, threeNetSendTemp, threeNetRetTemp string
+		rows.Scan(&stationID, &stationName, &buyHeat, &oneNetWaterConsume, &towNetWaterConsume, &valveOpenDegree, &secSendWaterTemp, &secRetWaterTemp, &secNetFlow, &threeNetSendTemp, &threeNetRetTemp)
 		if len(stationName) < 2 {
 			continue
 		}
+		// buy_heat
+		tagNameList, plcIDList, pointIDList, tagDescList := getIDList(db, buyHeat)
+		if len(tagNameList) > 1 {
+			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "buy_heat", "cumulative", "购热量,累积值",
+				tagNameList, tagDescList, plcIDList, pointIDList)
+			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
+		}
+
+		// one_net_water_consume
+		tagNameList, plcIDList, pointIDList, tagDescList = getIDList(db, oneNetWaterConsume)
+		if len(tagNameList) > 1 {
+			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "one_net_water_consume", "cumulative", "一网补水量,累积值",
+				tagNameList, tagDescList, plcIDList, pointIDList)
+			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
+		}
+
+		// two_net_water_consume
+		tagNameList, plcIDList, pointIDList, tagDescList = getIDList(db, towNetWaterConsume)
+		if len(tagNameList) > 1 {
+			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "two_net_water_consume", "cumulative", "二网补水量,累积值",
+				tagNameList, tagDescList, plcIDList, pointIDList)
+			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
+		}
 
 		// valve_open_degree
-		tagNameList, plcIDList, pointIDList, tagDescList := getIDList(db, valveOpenDegree)
+		tagNameList, plcIDList, pointIDList, tagDescList = getIDList(db, valveOpenDegree)
 		if len(tagNameList) > 1 {
 			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "valve_open_degree", "runtime", "电调阀开度,实时值",
 				tagNameList, tagDescList, plcIDList, pointIDList)
@@ -174,6 +200,13 @@ func convertElseType(db *sqlx.DB) {
 		}
 
 	}
+}
+
+func addFixedStationAndTagName(db *sqlx.DB) {
+	stationID, stationName := "2", "首站"
+	// guan_sun
+	db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "guan_sun", "guansun", "管损,管损值", "", "", "", "")
+	fmt.Println("添加管损成功!")
 }
 
 //插入虚拟的TagName
@@ -266,5 +299,6 @@ func main() {
 	db.Exec("truncate table temporary_station_tag_name_final")
 	convertWaterHeatElec(db)
 	convertElseType(db)
-	createVirtualTagName(db)
+	addFixedStationAndTagName(db)
+	//createVirtualTagName(db)
 }
