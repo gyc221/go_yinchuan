@@ -203,16 +203,15 @@ func convertElseType(db *sqlx.DB) {
 }
 
 func addFixedStationAndTagName(db *sqlx.DB) {
-	stationID, stationName := "2", "首站"
 	// guan_sun
+	stationID, stationName := "2", "首站"
 	db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "guan_sun", "guansun", "管损,管损值", "", "", "", "")
 	fmt.Println("添加管损成功!")
 }
 
 //插入虚拟的TagName
 func createVirtualTagName(db *sqlx.DB) {
-	sql := `insert into temporary_station_tag_name_final
-
+	sql1 := `insert into temporary_station_tag_name_final
 	select 
 	a.station_id,
 	a.station_name,
@@ -281,8 +280,9 @@ func createVirtualTagName(db *sqlx.DB) {
 	from 
 	(
 	select a.id as station_id,a.nam as station_name,b.tag_type from basis_org a left join temporary_station_tag_name_final b on a.id=b.station_id and b.tag_type='salt_consume' where  a.id >46 and b.tag_type is null
-	) a;`
-	db.Exec(sql)
+	) a`
+	_, err := db.Exec(sql1)
+	fmt.Println("创建虚拟点", err)
 }
 func main() {
 	file, err := os.Open("./dbconfig.json")
