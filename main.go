@@ -57,6 +57,15 @@ func getIDList(db *sqlx.DB, tagNameList string) (string, string, string, string)
 	return strings.Join(aryTagName, ","), strings.Join(aryPlcID, ","), strings.Join(aryPointID, ","), strings.Join(aryTagDesc, ",")
 }
 
+func saveOneTagName(db *sqlx.DB, stationID, stationName, tagName, tagType, tagTypeType, desc string) {
+	tagNameList, plcIDList, pointIDList, tagDescList := getIDList(db, tagName)
+	if len(tagNameList) > 1 {
+		db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, tagType, tagTypeType, desc,
+			tagNameList, tagDescList, plcIDList, pointIDList)
+		fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
+	}
+}
+
 //从李袁星整理的表里面统计水耗 电耗 热耗 对应的TagName
 func convertWaterHeatElec(db *sqlx.DB) {
 	sql1 := `select 
@@ -76,30 +85,12 @@ func convertWaterHeatElec(db *sqlx.DB) {
 		if len(stationName) < 2 {
 			continue
 		}
-
 		// water
-		tagNameList, plcIDList, pointIDList, tagDescList := getIDList(db, water)
-		if len(tagNameList) > 1 {
-			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "water_consume", "cumulative", "水耗,累积值",
-				tagNameList, tagDescList, plcIDList, pointIDList)
-			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
-		}
-
-		// heat
-		tagNameList, plcIDList, pointIDList, tagDescList = getIDList(db, heat)
-		if len(tagNameList) > 1 {
-			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "heat_consume", "cumulative", "热耗,累积值",
-				tagNameList, tagDescList, plcIDList, pointIDList)
-			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
-		}
-
+		saveOneTagName(db, stationID, stationName, water, "water_consume", "cumulative", "水耗,累积值")
+		//heat
+		saveOneTagName(db, stationID, stationName, heat, "heat_consume", "cumulative", "热耗,累积值")
 		// elec
-		tagNameList, plcIDList, pointIDList, tagDescList = getIDList(db, elec)
-		if len(tagNameList) > 1 {
-			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "elec_consume", "cumulative", "电耗,累积值",
-				tagNameList, tagDescList, plcIDList, pointIDList)
-			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
-		}
+		saveOneTagName(db, stationID, stationName, elec, "elec_consume", "cumulative", "电耗,累积值")
 	}
 }
 
@@ -128,77 +119,31 @@ func convertElseType(db *sqlx.DB) {
 			continue
 		}
 		// buy_heat
-		tagNameList, plcIDList, pointIDList, tagDescList := getIDList(db, buyHeat)
-		if len(tagNameList) > 1 {
-			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "buy_heat", "cumulative", "购热量,累积值",
-				tagNameList, tagDescList, plcIDList, pointIDList)
-			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
-		}
+		saveOneTagName(db, stationID, stationName, buyHeat, "buy_heat", "cumulative", "购热量,累积值")
 
 		// one_net_water_consume
-		tagNameList, plcIDList, pointIDList, tagDescList = getIDList(db, oneNetWaterConsume)
-		if len(tagNameList) > 1 {
-			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "one_net_water_consume", "cumulative", "一网补水量,累积值",
-				tagNameList, tagDescList, plcIDList, pointIDList)
-			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
-		}
+		saveOneTagName(db, stationID, stationName, oneNetWaterConsume, "one_net_water_consume", "cumulative", "一网补水量,累积值")
 
 		// two_net_water_consume
-		tagNameList, plcIDList, pointIDList, tagDescList = getIDList(db, towNetWaterConsume)
-		if len(tagNameList) > 1 {
-			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "two_net_water_consume", "cumulative", "二网补水量,累积值",
-				tagNameList, tagDescList, plcIDList, pointIDList)
-			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
-		}
+		saveOneTagName(db, stationID, stationName, towNetWaterConsume, "two_net_water_consume", "cumulative", "二网补水量,累积值")
 
 		// valve_open_degree
-		tagNameList, plcIDList, pointIDList, tagDescList = getIDList(db, valveOpenDegree)
-		if len(tagNameList) > 1 {
-			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "valve_open_degree", "runtime", "电调阀开度,实时值",
-				tagNameList, tagDescList, plcIDList, pointIDList)
-			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
-		}
+		saveOneTagName(db, stationID, stationName, valveOpenDegree, "valve_open_degree", "runtime", "电调阀开度,实时值")
 
 		// sec_send_water_temp
-		tagNameList, plcIDList, pointIDList, tagDescList = getIDList(db, secSendWaterTemp)
-		if len(tagNameList) > 1 {
-			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "sec_send_water_temp", "runtime", "二次网供水温度,实时值",
-				tagNameList, tagDescList, plcIDList, pointIDList)
-			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
-		}
+		saveOneTagName(db, stationID, stationName, secSendWaterTemp, "sec_send_water_temp", "runtime", "二次网供水温度,实时值")
 
 		// sec_ret_water_temp
-		tagNameList, plcIDList, pointIDList, tagDescList = getIDList(db, secRetWaterTemp)
-		if len(tagNameList) > 1 {
-			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "sec_ret_water_temp", "runtime", "二次网回水温度,实时值",
-				tagNameList, tagDescList, plcIDList, pointIDList)
-			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
-		}
+		saveOneTagName(db, stationID, stationName, secRetWaterTemp, "sec_ret_water_temp", "runtime", "二次网回水温度,实时值")
 
 		// sec_net_flow
-		tagNameList, plcIDList, pointIDList, tagDescList = getIDList(db, secNetFlow)
-		if len(tagNameList) > 1 {
-			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "sec_net_flow", "cumulative", "二网流量,累计值",
-				tagNameList, tagDescList, plcIDList, pointIDList)
-			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
-		}
+		saveOneTagName(db, stationID, stationName, secNetFlow, "sec_net_flow", "cumulative", "二网流量,累积值")
 
 		// three_net_send_temp
-		tagNameList, plcIDList, pointIDList, tagDescList = getIDList(db, threeNetSendTemp)
-		if len(tagNameList) > 1 {
-			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "three_net_send_temp", "runtime", "三次网供水温度,实时值",
-				tagNameList, tagDescList, plcIDList, pointIDList)
-			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
-		}
+		saveOneTagName(db, stationID, stationName, threeNetSendTemp, "three_net_send_temp", "runtime", "三次网供水温度,实时值")
 
 		// three_net_ret_temp
-		tagNameList, plcIDList, pointIDList, tagDescList = getIDList(db, threeNetRetTemp)
-		if len(tagNameList) > 1 {
-			db.Exec("insert into temporary_station_tag_name_final values(?,?,?,?,?,?,?,?,?)", stationID, stationName, "three_net_ret_temp", "runtime", "三次网回水温度,实时值",
-				tagNameList, tagDescList, plcIDList, pointIDList)
-			fmt.Println(stationID, stationName, tagNameList, tagDescList, plcIDList, pointIDList)
-		}
-
+		saveOneTagName(db, stationID, stationName, threeNetRetTemp, "three_net_ret_temp", "runtime", "三次网回水温度,实时值")
 	}
 }
 
