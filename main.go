@@ -21,38 +21,58 @@ type DbConfig struct {
 	Charset string
 }
 
+type tagNameCfg struct {
+	plcID   string
+	pointID string
+	desc    string
+}
+
 func checkError(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
+var mapTag map[string]tagNameCfg
+
+func initMapTag(db *sqlx.DB) {
+	mapTag = make(map[string]tagNameCfg)
+	sql := "select plc_id,point_id,ifnull(description,''),tag_name from datapointconfig where tag_name is not null and  length(tag_name)>1"
+	rows, err := db.Query(sql)
+	checkError(err)
+	defer rows.Close()
+
+	count := 0
+	for rows.Next() {
+		var plcid, pointid, desc, tagname string
+		rows.Scan(&plcid, &pointid, &desc, &tagname)
+		if len(plcid) < 1 || len(pointid) < 1 {
+			continue
+		}
+		mapTag[tagname] = tagNameCfg{plcid, pointid, desc}
+		count++
+	}
+	fmt.Println("initMapTag count=", count)
+}
+
 func getIDList(db *sqlx.DB, tagNameList string) (string, string, string, string) {
 	if len(tagNameList) < 2 {
 		return "", "", "", ""
 	}
-	sql := "select plc_id,point_id,description from datapointconfig where tag_name='%s'"
 	aryTagName := make([]string, 0)
 	aryPlcID := make([]string, 0)
 	aryPointID := make([]string, 0)
 	aryTagDesc := make([]string, 0)
 	for _, v := range strings.Split(tagNameList, ",") {
-		rows, err := db.Query(fmt.Sprintf(sql, v))
-		checkError(err)
-		defer rows.Close()
-
-		for rows.Next() {
-			var plcid, pointid, desc string
-			rows.Scan(&plcid, &pointid, &desc)
-			if len(plcid) < 1 || len(pointid) < 1 {
-				fmt.Println("----------------------", v, " not find!------------------------")
-				continue
-			}
-			aryTagName = append(aryTagName, v)
-			aryPlcID = append(aryPlcID, plcid)
-			aryPointID = append(aryPointID, pointid)
-			aryTagDesc = append(aryTagDesc, desc)
+		ret, ok := mapTag[v]
+		if !ok {
+			fmt.Println("----------------------", v, " not find!------------------------")
+			continue
 		}
+		aryTagName = append(aryTagName, v)
+		aryPlcID = append(aryPlcID, ret.plcID)
+		aryPointID = append(aryPointID, ret.pointID)
+		aryTagDesc = append(aryTagDesc, ret.desc)
 	}
 	return strings.Join(aryTagName, ","), strings.Join(aryPlcID, ","), strings.Join(aryPointID, ","), strings.Join(aryTagDesc, ",")
 }
@@ -241,9 +261,23 @@ func main() {
 	var db *sqlx.DB = connectMysql(dbconfig)
 	defer db.Close()
 
+	initMapTag(db)
 	db.Exec("truncate table temporary_station_tag_name_final")
+
+	conn, err := db.Begin()
+	checkError(err)
 	convertWaterHeatElec(db)
+	conn.Commit()
+
+	conn, err = db.Begin()
+	checkError(err)
 	convertElseType(db)
+	conn.Commit()
+
+	conn, err = db.Begin()
+	checkError(err)
 	addFixedStationAndTagName(db)
+	conn.Commit()
+
 	//createVirtualTagName(db)
 }
